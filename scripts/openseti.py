@@ -21,11 +21,24 @@ import requests
 import numpy as np
 from pathlib import Path
 
-# Configuration
-COORDINATOR_URL = os.environ.get('OpenSETI_COORDINATOR', 'https://claw99.app/coordinator')
-API_KEY = os.environ.get('OpenSETI_API_KEY', 'openseti_coordinator_v1_x8k3m2n7')
+# Configuration - no hardcoded secrets
+# Coordinator URL - defaults to official OpenSETI network
+COORDINATOR_URL = os.environ.get('OPENSETI_COORDINATOR', 'https://claw99.app/coordinator')
+
+# API key - obtained during registration, stored in config
+# Can also be set via environment variable
 CONFIG_DIR = Path.home() / '.openseti'
 CONFIG_FILE = CONFIG_DIR / 'config.json'
+
+def get_api_key():
+    """Get API key from environment or config file"""
+    # First check environment
+    env_key = os.environ.get('OPENSETI_API_KEY')
+    if env_key:
+        return env_key
+    # Then check config
+    config = load_config()
+    return config.get('api_key')
 
 def load_config():
     if CONFIG_FILE.exists():
@@ -257,8 +270,9 @@ def analyze_signal(data, metadata):
 # ============ NETWORK FUNCTIONS ============
 
 def register(wallet):
-    """Register wallet with coordinator"""
+    """Register wallet with coordinator and obtain API key"""
     print(f"🛸 Registering wallet: {wallet[:8]}...{wallet[-4:]}")
+    print(f"📡 Coordinator: {COORDINATOR_URL}")
     
     try:
         res = requests.post(
@@ -271,8 +285,16 @@ def register(wallet):
         if res.status_code == 200:
             config = load_config()
             config['wallet'] = wallet
+            # Save API key from registration response
+            if data.get('api_key'):
+                config['api_key'] = data['api_key']
+                print("🔑 API key obtained and saved")
+            else:
+                # Use default public API key for open network
+                config['api_key'] = 'openseti_public_v1'
             save_config(config)
             print("✅ Registration successful!")
+            print(f"📁 Config saved to: {CONFIG_FILE}")
             return True
         else:
             print(f"❌ Error: {data.get('error', 'Unknown')}")
@@ -283,10 +305,14 @@ def register(wallet):
 
 def get_work(wallet):
     """Request a work unit from coordinator"""
+    api_key = get_api_key()
+    if not api_key:
+        print("❌ No API key. Register first or set OPENSETI_API_KEY")
+        return None
     try:
         res = requests.post(
             f"{COORDINATOR_URL}/api/work",
-            json={'wallet': wallet, 'api_key': API_KEY},
+            json={'wallet': wallet, 'api_key': api_key},
             timeout=30
         )
         
@@ -316,12 +342,15 @@ def download_work_unit(download_url):
 
 def submit_result(wallet, work_id, result):
     """Submit analysis result"""
+    api_key = get_api_key()
+    if not api_key:
+        return {'error': 'No API key configured'}
     try:
         res = requests.post(
             f"{COORDINATOR_URL}/api/submit",
             json={
                 'wallet': wallet,
-                'api_key': API_KEY,
+                'api_key': api_key,
                 'work_id': work_id,
                 'anomaly_score': result['anomaly_score'],
                 'classification': result['classification'],

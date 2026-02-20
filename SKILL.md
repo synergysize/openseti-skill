@@ -1,74 +1,130 @@
 ---
 name: openseti
-description: Distributed SETI scanner - contribute compute power to analyze real radio telescope data from Breakthrough Listen. Earn tokens when your analysis discovers anomalies. Use when setting up distributed alien signal detection, running SETI scans, or contributing to the OpenSETI network.
+description: Distributed SETI scanner - contribute compute power to analyze real radio telescope data from Breakthrough Listen. Earn tokens when your analysis discovers anomalies.
+homepage: https://github.com/synergysize/openseti-skill
+repository: https://github.com/synergysize/openseti-skill
+env:
+  - name: OPENSETI_COORDINATOR
+    description: Coordinator URL (default uses official OpenSETI network)
+    required: false
+  - name: OPENSETI_API_KEY
+    description: API key for coordinator authentication (obtain from coordinator)
+    required: false
 ---
 
 # OpenSETI Distributed Scanner
 
-Contribute your compute power to scan real Breakthrough Listen radio telescope data for signs of extraterrestrial intelligence. This is a SETI@home-style distributed computing project with token rewards.
+Contribute your compute power to scan real Breakthrough Listen radio telescope data for signs of extraterrestrial intelligence. A SETI@home-style distributed computing project.
+
+## Data Provenance
+
+**All analyzed data comes directly from publicly available sources:**
+
+- **Source:** [Breakthrough Listen Open Data Archive](https://breakthroughinitiatives.org/opendatasearch)
+- **Telescopes:** Green Bank Telescope (West Virginia), Parkes Observatory (Australia)
+- **Format:** Filterbank (.fil) and HDF5 files containing radio frequency observations
+- **Targets:** Known exoplanet systems, nearby stars, and objects of interest
+
+The OpenSETI coordinator chunks these public datasets into work units. You can verify data authenticity by comparing checksums with the original archive.
+
+## Security & Trust
+
+**What this skill does:**
+- Downloads ~1MB work unit chunks (radio telescope spectrograms)
+- Performs local FFT/signal analysis using NumPy/SciPy
+- Submits analysis results (anomaly scores) to coordinator
+- Stores only your PUBLIC wallet address locally (~/.openseti/config.json)
+
+**What this skill does NOT do:**
+- Request or store private keys
+- Execute arbitrary code from the network
+- Access files outside ~/.openseti/
+- Require elevated privileges
+
+**To verify the coordinator:**
+```bash
+# Check coordinator health
+curl https://claw99.app/coordinator/api/health
+
+# View network stats
+curl https://claw99.app/coordinator/api/stats
+```
+
+## Configuration
+
+Set environment variables to use a different coordinator:
+
+```bash
+export OPENSETI_COORDINATOR="https://your-coordinator.com"
+export OPENSETI_API_KEY="your-api-key"
+```
+
+Or use the defaults (official OpenSETI network).
 
 ## Quick Start
 
-1. Register your Solana wallet:
+1. Register your Solana wallet (public address only):
 ```bash
 python scripts/openseti.py register <your-wallet-address>
 ```
 
-2. Run a scan:
+2. Run a single scan:
 ```bash
 python scripts/openseti.py scan
 ```
 
-3. Run continuous scanning (background):
+3. Run continuous scanning:
 ```bash
 python scripts/openseti.py scan --continuous
 ```
 
 ## How It Works
 
-1. Your machine requests a work unit from the OpenSETI network
-2. Work units contain real radio telescope data chunks (~1MB each)
-3. Your machine analyzes the data using FFT and signal processing
-4. Results are submitted back to the network
-5. If an anomaly is detected, you earn tokens
+1. Request work unit from coordinator (1MB spectrogram chunk)
+2. Download and analyze locally using FFT
+3. Detect narrowband signals, Doppler drift, SNR peaks
+4. Calculate anomaly score based on SETI criteria
+5. Submit results — earn tokens if anomaly detected
 
 ## Analysis Criteria
 
-The scanner looks for signals that match ETI signatures:
+Signals matching ETI signatures:
 
-- **Narrowband signals** (< 10 Hz bandwidth) - Natural sources are broadband
-- **Doppler drift** - Frequency shift indicating non-terrestrial origin
-- **High SNR** - Strong signals above noise floor
-- **Hydrogen line proximity** - 1420.405 MHz is the "water hole"
-- **Non-RFI patterns** - Doesn't match known Earth interference
+| Criterion | Why It Matters |
+|-----------|----------------|
+| Narrowband (< 10 Hz) | Natural sources are broadband |
+| Doppler drift | Indicates non-geostationary source |
+| High SNR (> 10) | Strong signal above noise |
+| Near 1420.405 MHz | Hydrogen line - universal beacon frequency |
+| Non-RFI pattern | Doesn't match known Earth interference |
 
-## Reward Structure
+## Rewards
 
-| Classification | Score | Tokens |
-|---------------|-------|--------|
+| Classification | Anomaly Score | Tokens |
+|---------------|---------------|--------|
 | NATURAL | 0.0 - 0.15 | 0 |
 | WEAK_SIGNAL | 0.15 - 0.4 | 0 |
 | INVESTIGATING | 0.4 - 0.7 | 2,500 |
 | ANOMALY_FLAGGED | 0.7+ | 5,000 |
 
-Tokens are tracked on-chain and distributed when the token launches.
+## Requirements
+
+```bash
+pip install numpy scipy requests
+```
 
 ## Commands
 
-- `openseti register <wallet>` - Register your Solana wallet
-- `openseti scan` - Run one scan cycle
-- `openseti scan --continuous` - Run continuous scanning
-- `openseti stats` - Show your contribution stats
-- `openseti leaderboard` - Show top contributors
+| Command | Description |
+|---------|-------------|
+| `register <wallet>` | Register Solana wallet (public address) |
+| `scan` | Process one work unit |
+| `scan --continuous` | Run continuously |
+| `stats` | Show your stats |
+| `leaderboard` | Top contributors |
 
-## Requirements
+## Source Code
 
-- Python 3.8+
-- NumPy and SciPy (`pip install numpy scipy requests`)
+Full source available at: https://github.com/synergysize/openseti-skill
 
-## Data Source
-
-All data comes from the Breakthrough Listen Open Data Archive:
-https://breakthroughinitiatives.org/opendatasearch
-
-Observations from the Green Bank Telescope and Parkes Observatory.
+Report issues or verify the code before running on sensitive systems.
